@@ -71,29 +71,22 @@ int binarySearch(double x, vector<double> &arr, int low, int high) {
 
 void wang_mendel(vector<vector<double>> &partition, vector<wmMat> &mat) {
     int len = (int) partition[0].size();
-//    auto member = Eigen::ArrayXXf::Zero(len, len);
-//    vector<Eigen::ArrayXXf> membership = {member,member};
-    double membership[2][9][9];
-    for (auto &i: membership) {
-        for (int j = 0; j < len; ++j) {
-            memset(i[j], 0, sizeof(i[j]));
-        }
-    }
+    auto member = Eigen::ArrayXXf::Zero(len, len);
+    vector<Eigen::ArrayXXf> membership = {member,member};
     for (auto xy: mat) {
         pairs result = fastSearch(xy.x[0], xy.x[1], partition);
-        membership[0][result.x][result.y] += xy.ux[0];
-        membership[1][result.x][result.y] += xy.ux[1];
+        membership[0](result.x,result.y) += (float)xy.ux[0];
+        membership[1](result.x,result.y) += (float)xy.ux[1];
     }
     for (int i = 0; i < len; ++i) {
         for (int j = 0; j < len; ++j) {
-            if (membership[0][i][j] == 0.0 && membership[1][i][j] == 0.0) {
-                // cout<< "discard"<<endl;
+            if (membership[0](i,j) == 0.0 && membership[1](i,j) == 0.0) {
                 continue;
             }
-            char r = membership[0][i][j] > membership[1][i][j] ? 'x' : 'y';
+            char r = membership[0](i,j) > membership[1](i,j) ? 'x' : 'y';
             cout << "if " << i << " and " << j << " then " << r << endl;
-            cout << "x: " << membership[0][i][j] << endl;
-            cout << "y: " << membership[1][i][j] << endl;
+            cout << "x: " << membership[0](i,j) << endl;
+            cout << "y: " << membership[1](i,j) << endl;
             cout << "partitionX: " << partition[0][i] << " - " << partition[0][i + 1] << " partitionY "
                  << partition[1][j]
                  << " - " << partition[1][i + 1] << endl;

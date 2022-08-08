@@ -25,12 +25,12 @@ struct boundary {
 int binarySearch(double x, vector<double> &arr, int low, int high);
 
 vector<wmMat> matReader(const string &path) {
-    io::CSVReader<5> in(path);
-    in.read_header(io::ignore_extra_column, "x", "y", "ux", "uy", "I");
-    double x, y, ux, uy, I;
+    io::CSVReader<13> in(path);
+    in.read_header(io::ignore_extra_column, "x", "y", "z", "c", "v", "b", "ux", "uy", "uz", "uc", "uv", "ub", "I");
+    double x, y, z, c, v, b, ux, uy, uz, uc, uv, ub, I;
     vector<wmMat> mat;
-    while (in.read_row(x, y, ux, uy, I)) {
-        wmMat row = {{x, y}, {ux, uy}, (int) I};
+    while (in.read_row(x, y, z, c, v, b, ux, uy, uz, uc, uv, ub, I)) {
+        wmMat row = {{x, y, z, c, v, b}, {ux, uy, uz, uc, uv, ub}, (int) I};
         mat.push_back(row);
     }
     return mat;
@@ -70,29 +70,33 @@ int binarySearch(double x, vector<double> &arr, int low, int high) {
 }
 
 void wang_mendel(vector<vector<double>> &partition, vector<wmMat> &mat) {
-    int len = (int) partition[0].size();
-    auto member = Eigen::ArrayXXf::Zero(len, len);
-    vector<Eigen::ArrayXXf> membership = {member,member};
+    int len = (int) partition[0].size(); // get the number of samples
+    auto member = Eigen::ArrayXXf::Zero(len, len); //
+    vector<Eigen::ArrayXXf> membership = {member, member};
     for (auto xy: mat) {
         pairs result = fastSearch(xy.x[0], xy.x[1], partition);
-        membership[0](result.x,result.y) += (float)xy.ux[0];
-        membership[1](result.x,result.y) += (float)xy.ux[1];
+        membership[0](result.x, result.y) += (float) xy.ux[0];
+        membership[1](result.x, result.y) += (float) xy.ux[1];
     }
     for (int i = 0; i < len; ++i) {
         for (int j = 0; j < len; ++j) {
-            if (membership[0](i,j) == 0.0 && membership[1](i,j) == 0.0) {
+            if (membership[0](i, j) == 0.0 && membership[1](i, j) == 0.0) {
                 continue;
             }
-            char r = membership[0](i,j) > membership[1](i,j) ? 'x' : 'y';
-            cout << "if " << i << " and " << j << " then " << r << endl;
-            cout << "x: " << membership[0](i,j) << endl;
-            cout << "y: " << membership[1](i,j) << endl;
-            cout << "partitionX: " << partition[0][i] << " - " << partition[0][i + 1] << " partitionY "
-                 << partition[1][j]
-                 << " - " << partition[1][i + 1] << endl;
+            char r = membership[0](i, j) > membership[1](i, j) ? 'x' : 'y';
+            bool debug = true;
+            if (debug) {
+                cout << "if " << i << " and " << j << " then " << r << endl;
+//                cout << "x: " << membership[0](i, j) << endl;
+//                cout << "y: " << membership[1](i, j) << endl;
+//                cout << "partitionX: " << partition[0][i] << " - " << partition[0][i + 1] << " partitionY "
+//                     << partition[1][j]
+//                     << " - " << partition[1][i + 1] << endl;
+            }
         }
     }
     for (auto &i: partition) {
+        cout << "size: " << i.size() << " ";
         for (auto element: i) {
             cout << element << " ";
         }

@@ -176,8 +176,13 @@ void to_csv(const string &path, const vector<vector<int>> &matrix) {
     std::ofstream out(path);
 
     for (auto &row: matrix) {
-        for (auto col: row)
-            out << col << ',';
+        for (auto i=0;i<row.size();++i){
+            if (i==row.size()-1){
+                out << row[i];
+            }else{
+                out << row[i] << ',';
+            }
+        }
         out << '\n';
     }
 }
@@ -197,15 +202,16 @@ predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<
                     break;
                 }
             }
-
+            numberOfRow++;
         }
+        numberOfRow = 0;
         if (model.count(index)) {
             for (const auto &[key, value]: model[index]) {
                 p.emplace_back(key);
                 break;
             }
         } else {
-            cout << index;
+            cout << index << endl;
         }
         result.emplace_back(p);
         p.clear();

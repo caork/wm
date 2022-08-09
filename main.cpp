@@ -3,13 +3,15 @@
 #include "map"
 #include <cfloat>
 #include "eigen3/Eigen/Dense"
+#include "fstream"
 
-using namespace std;
+using std::cout, std::endl, std::vector, std::string, std::map, std::pair;
 
 struct wmMat {
     vector<double> x;
-    vector<double> ux;
+    double ux;
     int I;
+    int A;
 };
 
 struct pairs {
@@ -25,12 +27,12 @@ struct boundary {
 int binarySearch(double x, vector<double> &arr, int low, int high);
 
 vector<wmMat> matReader(const string &path) {
-    io::CSVReader<13> in(path);
-    in.read_header(io::ignore_extra_column, "x", "y", "z", "c", "v", "b", "ux", "uy", "uz", "uc", "uv", "ub", "I");
-    double x, y, z, c, v, b, ux, uy, uz, uc, uv, ub, I;
+    io::CSVReader<9> in(path);
+    in.read_header(io::ignore_extra_column, "x", "y", "z", "c", "v", "b", "ux", "I", "A");
+    double x, y, z, c, v, b, ux, I, A;
     vector<wmMat> mat;
-    while (in.read_row(x, y, z, c, v, b, ux, uy, uz, uc, uv, ub, I)) {
-        wmMat row = {{x, y, z, c, v, b}, {ux, uy, uz, uc, uv, ub}, (int) I};
+    while (in.read_row(x, y, z, c, v, b, ux, I, A)) {
+        wmMat row = {{x, y, z, c, v, b}, ux, (int) I, (int) A};
         mat.push_back(row);
     }
     return mat;
@@ -48,11 +50,10 @@ vector<vector<double>> rulesReader(const string &path) {
     return vector<vector<double>>{xs, ys};
 }
 
-pairs fastSearch(double x, double y, vector<vector<double>> &partition) {
+int fastSearch(double x, vector<vector<double>> &partition, int attribute) {
     int low = 0;
-    int xRegion = binarySearch(x, partition[0], low, (int) partition[0].size() - 2);
-    int yRegion = binarySearch(y, partition[1], low, (int) partition[0].size() - 2);
-    return pairs{xRegion, yRegion};
+    int xRegion = binarySearch(x, partition[attribute], low, (int) partition[attribute].size() - 2);
+    return xRegion;
 }
 
 int binarySearch(double x, vector<double> &arr, int low, int high) {
@@ -69,43 +70,60 @@ int binarySearch(double x, vector<double> &arr, int low, int high) {
     }
 }
 
-void wang_mendel(vector<vector<double>> &partition, vector<wmMat> &mat) {
-    int len = (int) partition[0].size(); // get the number of samples
-    auto member = Eigen::ArrayXXf::Zero(len, len); //
-    vector<Eigen::ArrayXXf> membership = {member, member};
-    for (auto xy: mat) {
-        pairs result = fastSearch(xy.x[0], xy.x[1], partition);
-        membership[0](result.x, result.y) += (float) xy.ux[0];
-        membership[1](result.x, result.y) += (float) xy.ux[1];
+map<string, map<int, float>> wang_mendel(vector<vector<double>> &partition, vector<wmMat> &mat) {
+    auto attribute = partition.size() + 3; // attribute+ux+A+I
+    auto samples = mat.size();
+    Eigen::ArrayXXf rules(samples, attribute - 1); // I was not needed
+    vector<int> rule;
+    for (int i = 0; i < samples; ++i) { // allocate the samples to each fuzzy region
+        for (int j = 0; j < attribute - 3; ++j) {
+            int index = fastSearch(mat[i].x[j], partition, j);
+            rule.emplace_back(index);
+        }
+        rule.emplace_back(mat[i].ux);
+        rule.emplace_back(mat[i].A);
+        for (int j = 0; j < rule.size(); ++j) {
+            rules(i, j) = (float) rule[j];
+        }
+        rule.clear();
     }
-    for (int i = 0; i < len; ++i) {
-        for (int j = 0; j < len; ++j) {
-            if (membership[0](i, j) == 0.0 && membership[1](i, j) == 0.0) {
-                continue;
+    map<string, map<int, float>> fuzzyRules;
+    for (int i = 0; i < samples; ++i) { // convert to rule based map
+        string index;
+        for (int j = 0; j < attribute - 3; ++j) {
+            index += std::to_string((int) rules(i, j));
+        }
+        if (fuzzyRules.count(index)) {
+            if (fuzzyRules[index].count((int) attribute - 1)) { // attributes combine to an index and A is another key
+                fuzzyRules[index][(int) rules(i, (long) attribute - 2)] = rules(i, (long) attribute - 3);
+            } else {
+                fuzzyRules[index][(int) rules(i, (long) attribute - 2)] += rules(i, (long) attribute - 3);
             }
-            char r = membership[0](i, j) > membership[1](i, j) ? 'x' : 'y';
-            bool debug = true;
-            if (debug) {
-                cout << "if " << i << " and " << j << " then " << r << endl;
-//                cout << "x: " << membership[0](i, j) << endl;
-//                cout << "y: " << membership[1](i, j) << endl;
-//                cout << "partitionX: " << partition[0][i] << " - " << partition[0][i + 1] << " partitionY "
-//                     << partition[1][j]
-//                     << " - " << partition[1][i + 1] << endl;
-            }
+        } else {
+            fuzzyRules[index][(int) rules(i, (long) attribute - 2)] = rules(i, (long) attribute - 3); //error
         }
     }
-    for (auto &i: partition) {
-        cout << "size: " << i.size() << " ";
-        for (auto element: i) {
-            cout << element << " ";
+    for (auto &[i, theFuzzyRule]: fuzzyRules) {
+        if (fuzzyRules[i].size() > 1) { // remove small weighted value
+            float max = 0;
+            int B; // the output value
+            for (auto const &[key, value]: fuzzyRules[i]) { // find the maximum
+                if (value > max) {
+                    B = key;
+                    max = value;
+                }
+            }
+
+            fuzzyRules[i].clear();
+            fuzzyRules[i][B] = max;
         }
-        cout << endl;
     }
+
+    return fuzzyRules;
 }
 
 vector<vector<double>> fuzzyRegion(vector<wmMat> &mat) {
-    vector<map<int, boundary>> boundaries(2); // x ,y ,.... 2 is the dimension of dataset
+    vector<map<int, boundary>> boundaries(6); // x ,y ,.... 6 is the dimension of dataset
     // extract boundaries
     for (int i = 0; i < boundaries.size(); i++) { // for every col
         for (auto row: mat) { // for every sample
@@ -121,7 +139,7 @@ vector<vector<double>> fuzzyRegion(vector<wmMat> &mat) {
             }
         }
     }
-    vector<vector<double>> regions(2);
+    vector<vector<double>> regions(6); // 6 is the number of attribute
     int index = 0;
     // stored boundaries to an array
     for (const auto &boundariesX: boundaries) {
@@ -154,11 +172,54 @@ vector<vector<double>> fuzzyRegion(vector<wmMat> &mat) {
     return regions;
 }
 
+void to_csv(const string &path, const vector<vector<int>> &matrix) {
+    std::ofstream out(path);
+
+    for (auto &row: matrix) {
+        for (auto col: row)
+            out << col << ',';
+        out << '\n';
+    }
+}
+
+vector<vector<int>>
+predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<double>> &partition) {
+    vector<vector<int>> result;
+    vector<int> p; // storage predict and true value
+    int numberOfRow = 0;
+    for (auto &row: test) {
+        string index;
+        p.emplace_back(row.A);
+        for (double i: row.x) {
+            for (int j = 0; j < partition[numberOfRow].size(); ++j) {
+                if (i <= partition[numberOfRow][j]) {
+                    index += std::to_string((int) j);
+                    break;
+                }
+            }
+
+        }
+        if (model.count(index)) {
+            for (const auto &[key, value]: model[index]) {
+                p.emplace_back(key);
+                break;
+            }
+        } else {
+            cout << index;
+        }
+        result.emplace_back(p);
+        p.clear();
+    }
+    return result;
+}
+
 
 int main() {
     // auto partition = rulesReader("rules.csv"); // option for origin wm algorithm
-    auto mat = matReader("result.csv");
+    auto mat = matReader("carwm.csv");
     auto partition = fuzzyRegion(mat);
-    wang_mendel(partition, mat);
-
+    auto model = wang_mendel(partition, mat);
+    auto test = matReader("carwm.csv");
+    auto result = predict(model, test, partition);
+    to_csv("results.csv", result);
 }

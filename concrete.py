@@ -9,7 +9,7 @@ import numpy as np
 
 
 #%%
-path = r'/mnt/c/Users/asusb550/Downloads/concrete/Concrete_Data_Yeh.csv'
+path = r'Concrete_Data_Yeh.csv'
 df = pd.read_csv(path)
 df.dropna(inplace=True)
 cat_columns = df.select_dtypes(['object']).columns

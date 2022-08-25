@@ -4,7 +4,7 @@
 #include <cfloat>
 #include "eigen3/Eigen/Dense"
 #include "fstream"
-
+#include "format.h"
 using std::cout, std::endl, std::vector, std::string, std::map, std::pair;
 
 struct wmMat {
@@ -27,27 +27,33 @@ struct boundary {
 int binarySearch(double x, vector<double> &arr, int low, int high);
 
 vector<wmMat> matReader(const string &path) {
-    io::CSVReader<9> in(path);
-    in.read_header(io::ignore_extra_column, "x", "y", "z", "c", "v", "b", "ux", "I", "A");
-    double x, y, z, c, v, b, ux, I, A;
+    io::CSVReader<12> in(path);
+    in.read_header(io::ignore_extra_column, "cement","slag","flyash","water","superplasticizer","coarseaggregate","fineaggregate","age","csMPa","hdbscan","fcm","hdbI");
+    double x, y, z, c, v, b, n,m,ux, I, A,fcm;
     vector<wmMat> mat;
-    while (in.read_row(x, y, z, c, v, b, ux, I, A)) {
-        wmMat row = {{x, y, z, c, v, b}, ux, (int) I, (int) A};
+    while (in.read_row(x, y, z, c, v, b,n,m,A, I, fcm,ux)) {
+        wmMat row = {{x, y, z, c, v, b,n,m}, ux, (int) fcm, (int) A};
         mat.push_back(row);
     }
     return mat;
 }
 
 vector<vector<double>> rulesReader(const string &path) {
-    io::CSVReader<2> in(path);
-    in.read_header(io::ignore_extra_column, "x", "y");
-    double x, y;
-    vector<double> xs, ys;
-    while (in.read_row(x, y)) {
+    io::CSVReader<9> in(path);
+    in.read_header(io::ignore_extra_column, "cement","slag","flyash","water","superplasticizer","coarseaggregate","fineaggregate","age","csMPa");
+    double x, y, z, c, v, b,n,m,mpa;
+    vector<double> xs, ys, zs, cs, vs, bs,ns,ms;
+    while (in.read_row(x, y, z, c, v, b,n,m,mpa)) {
         xs.push_back(x);
         ys.push_back(y);
+        zs.push_back(z);
+        cs.push_back(c);
+        vs.push_back(v);
+        bs.push_back(b);
+        ns.push_back(n);
+        ms.push_back(m);
     }
-    return vector<vector<double>>{xs, ys};
+    return vector<vector<double>>{xs, ys, zs, cs, vs, bs,ns,ms};
 }
 
 int fastSearch(double x, vector<vector<double>> &partition, int attribute) {
@@ -73,7 +79,7 @@ int binarySearch(double x, vector<double> &arr, int low, int high) {
 map<string, map<int, float>> wang_mendel(vector<vector<double>> &partition, vector<wmMat> &mat) {
     auto attribute = partition.size() + 3; // attribute+ux+A+I
     auto samples = mat.size();
-    Eigen::ArrayXXf rules(samples, attribute - 1); // I was not needed
+    Eigen::ArrayXXf rules(samples, attribute - 1); // "I" is not needed
     vector<int> rule;
     for (int i = 0; i < samples; ++i) { // allocate the samples to each fuzzy region
         for (int j = 0; j < attribute - 3; ++j) {
@@ -91,6 +97,7 @@ map<string, map<int, float>> wang_mendel(vector<vector<double>> &partition, vect
     for (int i = 0; i < samples; ++i) { // convert to rule based map
         string index;
         for (int j = 0; j < attribute - 3; ++j) {
+            index += '-';
             index += std::to_string((int) rules(i, j));
         }
         if (fuzzyRules.count(index)) {
@@ -123,7 +130,7 @@ map<string, map<int, float>> wang_mendel(vector<vector<double>> &partition, vect
 }
 
 vector<vector<double>> fuzzyRegion(vector<wmMat> &mat) {
-    vector<map<int, boundary>> boundaries(6); // x ,y ,.... 6 is the dimension of dataset
+    vector<map<int, boundary>> boundaries(11); // x ,y ,.... 6 is the dimension of dataset
     // extract boundaries
     for (int i = 0; i < boundaries.size(); i++) { // for every col
         for (auto row: mat) { // for every sample
@@ -139,7 +146,7 @@ vector<vector<double>> fuzzyRegion(vector<wmMat> &mat) {
             }
         }
     }
-    vector<vector<double>> regions(6); // 6 is the number of attribute
+    vector<vector<double>> regions(8); // 6 is the number of attribute
     int index = 0;
     // stored boundaries to an array
     for (const auto &boundariesX: boundaries) {
@@ -176,10 +183,10 @@ void to_csv(const string &path, const vector<vector<int>> &matrix) {
     std::ofstream out(path);
 
     for (auto &row: matrix) {
-        for (auto i=0;i<row.size();++i){
-            if (i==row.size()-1){
+        for (auto i = 0; i < row.size(); ++i) {
+            if (i == row.size() - 1) {
                 out << row[i];
-            }else{
+            } else {
                 out << row[i] << ',';
             }
         }
@@ -198,6 +205,7 @@ predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<
         for (double i: row.x) {
             for (int j = 0; j < partition[numberOfRow].size(); ++j) {
                 if (i <= partition[numberOfRow][j]) {
+                    index += '-';
                     index += std::to_string((int) j);
                     break;
                 }
@@ -219,13 +227,51 @@ predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<
     return result;
 }
 
+void fuzzyMatlab(vector<vector<double>> &partition,map<string,map<int,float>> &model){
+    string fuzzyLogicCode = "fis = mamfis('Name',\"HDBSCANFS\");\n";
+    int attributeName = 1000;
+    for (const auto& attribute : partition) {
+        string input = SFormat("fis = addInput(fis,[{0} {1}],'Name',\"{2}\");\n",0,attribute[attribute.size()-2],attributeName);
+        fuzzyLogicCode += input; // add attribute to code;
+        char regionName = 67; // start from a
+        for (int i = 0; i < attribute.size()-1; ++i) {
+            fuzzyLogicCode += SFormat("fis = addMF(fis,\"{0}\",\"{1}\",[{2} {3}],'Name',\"{4}\");\n",attributeName,"gaussmf",attribute[i],attribute[i+1],regionName); // addMF
+            regionName++; // update
+        }
+        attributeName++; // update
+    }
+    cout<<fuzzyLogicCode;
+}
+
+void modelClean(map<string,map<int,float>> &model){
+    vector<string> useless;
+    for (const auto& rule:model){
+        for (const auto& key:rule.second){
+            if (key.first<0){
+                useless.emplace_back(rule.first);
+            }
+        }
+    }
+    for (const auto& key:useless) {
+        model.erase(key);
+    }
+}
 
 int main() {
-    // auto partition = rulesReader("rules.csv"); // option for origin wm algorithm
-    auto mat = matReader("carwm.csv");
+    auto mat = matReader("concreteResult.csv");
+    // auto partition = rulesReader("wmrules.csv");
     auto partition = fuzzyRegion(mat);
     auto model = wang_mendel(partition, mat);
-    auto test = matReader("carwm.csv");
+    modelClean(model);
+    fuzzyMatlab(partition,model);
+    for(const auto& m:model){
+        cout<<m.first<<endl;
+    }
+    for (auto i=0;i<20;i++){
+        cout<<"---------------------"<<endl;
+    }
+
+    auto test = matReader("concreteResult.csv");
     auto result = predict(model, test, partition);
     to_csv("results.csv", result);
 }

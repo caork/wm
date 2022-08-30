@@ -4,6 +4,8 @@
 #include <cfloat>
 #include "eigen3/Eigen/Dense"
 #include "fstream"
+#include "../tool/format.h"
+
 
 using std::cout, std::endl, std::vector, std::string, std::map, std::pair;
 
@@ -25,7 +27,7 @@ struct boundary {
 };
 
 int binarySearch(double x, vector<double> &arr, int low, int high);
-
+vector<string> split(const string &str, const string &delim);
 vector<wmMat> matReader(const string &path) {
     io::CSVReader<9> in(path);
     in.read_header(io::ignore_extra_column, "x", "y", "z", "c", "v", "b", "ux", "I", "A");
@@ -219,6 +221,120 @@ predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<
     return result;
 }
 
+
+string strJoin(vector<string> &strs) {
+    string res;
+    for (const auto &str: strs) {
+        res += str + " ";
+    }
+    return res;
+}
+
+string numJoin(vector<double> &nums){
+    string res;
+    for (const auto &num:nums){
+        res += std::to_string(num)+" ";
+    }
+    return res;
+}
+
+vector<double> muSigma(double a,double b){
+    double mu,sigma;
+    if (b-a<100){
+        mu = a+(b-a)/2;
+        sigma = (b-a);
+    }else{
+        if (a<0){
+            mu = b;
+            sigma = b;
+        }else{
+            mu = a;
+            sigma = a/8;
+        }
+    }
+    if (sigma<=0){
+        sigma = 1;
+    }
+    return vector<double>{sigma,mu};
+}
+
+void fuzzyMatlab(vector<vector<double>> &partition, map<string, map<int, float>> &model,vector<wmMat> &mat) {
+    string fuzzyLogicCode = "fis = mamfis('Name',\"HDBSCANFS\");\n";
+    int attributeName = 1000;
+    for (const auto &attribute: partition) {
+        string input = SFormat("fis = addInput(fis,[{0} {1}],'Name',\"{2}\");\n", 0, attribute[attribute.size() - 2],
+                               attributeName);
+        fuzzyLogicCode += input; // add attribute to code;
+        char regionName = 67; // start from a
+        for (int i = 0; i < attribute.size() - 1; ++i) {
+            auto muSigmas = muSigma(attribute[i],attribute[i+1]);
+            fuzzyLogicCode += SFormat("fis = addMF(fis,\"{0}\",\"{1}\",[{2} {3}],'Name',\"{4}\");\n", attributeName,
+                                      "gaussmf", muSigmas[0], muSigmas[1], regionName); // addMF
+            regionName++; // update
+        }
+        attributeName++; // update
+    }
+    fuzzyLogicCode += "fis = addOutput(fis,[0 83],'Name',\"mps\");\n";
+    for (const auto &sample:mat){ // add output
+        fuzzyLogicCode += SFormat("fis = addMF(fis,\"mps\",\"gaussmf\",[1,{0}],'Name',\"{1}\");\n",sample.A,attributeName);
+        attributeName++;
+    }
+    fuzzyLogicCode += "ruleList = [";
+    for (auto &rule: model) {
+        string streamString;
+        auto condition = split(rule.first, "-"); // if A and B
+        auto result = rule.second.begin()->first; // then C
+        condition.emplace_back(std::to_string(result)); // combine A B C
+        condition.emplace_back("1"); // weight is constantly equal to 1 (one win)
+        condition.emplace_back("1"); // AND
+        fuzzyLogicCode += strJoin(condition)+";";
+    }
+    fuzzyLogicCode.pop_back(); //  remove last ;
+    fuzzyLogicCode += "];\ninputs = [";
+    for (auto sample:mat) {
+        fuzzyLogicCode += numJoin(sample.x)+";";
+    }
+    fuzzyLogicCode += "];\nfis = addRule(fis,ruleList);\nevalfis(fis,inputs)";
+
+    std::ofstream file;
+    file.open("fuzzyLogic.m");
+    file << fuzzyLogicCode;
+    file.close();
+//    cout << fuzzyLogicCode;
+}
+
+void modelClean(map<string, map<int, float>> &model) {
+    vector<string> useless;
+    for (const auto &rule: model) {
+        for (const auto &key: rule.second) {
+            if (key.first < 0 || key.first > 100) {
+                useless.emplace_back(rule.first);
+            }
+        }
+    }
+    for (const auto &key: useless) {
+        model.erase(key);
+    }
+}
+
+vector<string> split(const string &str, const string &delim) {
+    vector<string> res;
+    if (str.empty()) return res;
+    char *strs = new char[str.length() + 1];
+    strcpy(strs, str.c_str());
+
+    char *d = new char[delim.length() + 1];
+    strcpy(d, delim.c_str());
+
+    char *p = strtok(strs, d);
+    while (p) {
+        string s = p;
+        res.push_back(s);
+        p = strtok(nullptr, d);
+    }
+
+    return res;
+}
 
 int main() {
     // auto partition = rulesReader("../data/rules.csv"); // option for origin wm algorithm

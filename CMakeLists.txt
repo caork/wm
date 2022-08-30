@@ -3,5 +3,5 @@ project(wm)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(wm src/wm/main.cpp src/tool/csv.h)
+add_executable(wm src/wm/main.cpp src/tool/csv.h src/tool/format.h)
 # include_directories(/usr/local/Cellar/eigen/3.4.0_1/include)

@@ -1,5 +1,5 @@
 #include <iostream>
-#include "csv.h"
+#include "../tool/csv.h"
 #include "map"
 #include <cfloat>
 #include "eigen3/Eigen/Dense"
@@ -221,11 +221,11 @@ predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<
 
 
 int main() {
-    // auto partition = rulesReader("rules.csv"); // option for origin wm algorithm
-    auto mat = matReader("carwm.csv");
+    // auto partition = rulesReader("../data/rules.csv"); // option for origin wm algorithm
+    auto mat = matReader("../data/carwm.csv");
     auto partition = fuzzyRegion(mat);
     auto model = wang_mendel(partition, mat);
-    auto test = matReader("carwm.csv");
+    auto test = matReader("../data/carwm.csv");
     auto result = predict(model, test, partition);
     to_csv("results.csv", result);
 }

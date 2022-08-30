@@ -1,4 +1,4 @@
-/Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/ninja -G Ninja -S /Users/caohaha/Documents/ProgramProject/CCPP/wm -B /Users/caohaha/Documents/ProgramProject/CCPP/wm/cmake-build-debug
+C:\Windows\system32\wsl.exe --distribution Ubuntu20.04LTS --exec /usr/bin/zsh -c "export CLION_IDE=TRUE && export JETBRAINS_IDE=TRUE && cd /mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug && /root/miniconda3/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G 'CodeBlocks - Unix Makefiles' /mnt/c/Users/asusb550/Documents/github/wm"
 -- Configuring done
 -- Generating done
--- Build files have been written to: /Users/caohaha/Documents/ProgramProject/CCPP/wm/cmake-build-debug
+-- Build files have been written to: /mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug

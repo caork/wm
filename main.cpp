@@ -39,7 +39,7 @@ vector<wmMat> matReader(const string &path) {
     double x, y, z, c, v, b, n, m, ux, I, A, fcm;
     vector<wmMat> mat;
     while (in.read_row(x, y, z, c, v, b, n, m, A, I, fcm, ux)) {
-        wmMat row = {{x, y, z, c, v, b, n, m}, ux, (int) fcm, (int) A};
+        wmMat row = {{x, y, z, c, v, b, n, m}, ux, (int) I, (int) A};
         mat.push_back(row);
     }
     return mat;
@@ -227,7 +227,7 @@ predict(map<string, map<int, float>> &model, vector<wmMat> &test, vector<vector<
                 break;
             }
         } else {
-            cout << index << endl;
+//            cout << index << endl;
         }
         result.emplace_back(p);
         p.clear();
@@ -313,7 +313,7 @@ void fuzzyMatlab(vector<vector<double>> &partition, map<string, map<int, float>>
     file.open("fuzzyLogic.m");
     file << fuzzyLogicCode;
     file.close();
-    cout << fuzzyLogicCode;
+//    cout << fuzzyLogicCode;
 }
 
 void modelClean(map<string, map<int, float>> &model) {
@@ -351,19 +351,19 @@ vector<string> split(const string &str, const string &delim) {
 
 int main() {
     auto mat = matReader("concreteResult.csv");
-    // auto partition = rulesReader("wmrules.csv");
+    // auto partition = rulesReader("concreteRules.csv");
     auto partition = fuzzyRegion(mat);
     auto model = wang_mendel(partition, mat);
     modelClean(model);
 
 
     fuzzyMatlab(partition, model,mat);
-    for (const auto &m: model) {
-        cout << m.first << endl;
-    }
-    for (auto i = 0; i < 20; i++) {
-        cout << "---------------------" << endl;
-    }
+//    for (const auto &m: model) {
+//        cout << m.first << endl;
+//    }
+//    for (auto i = 0; i < 20; i++) {
+//        cout << "---------------------" << endl;
+//    }
 
     auto test = matReader("concreteResult.csv");
     auto result = predict(model, test, partition);

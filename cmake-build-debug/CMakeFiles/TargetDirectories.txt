@@ -1,3 +1,0 @@
-/mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug/CMakeFiles/wm.dir
-/mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug/CMakeFiles/edit_cache.dir
-/mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug/CMakeFiles/rebuild_cache.dir

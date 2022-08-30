@@ -1,4 +1,0 @@
-C:\Windows\system32\wsl.exe --distribution Ubuntu20.04LTS --exec /usr/bin/zsh -c "export CLION_IDE=TRUE && export JETBRAINS_IDE=TRUE && cd /mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug && /root/miniconda3/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G 'CodeBlocks - Unix Makefiles' /mnt/c/Users/asusb550/Documents/github/wm"
--- Configuring done
--- Generating done
--- Build files have been written to: /mnt/c/Users/asusb550/Documents/github/wm/cmake-build-debug

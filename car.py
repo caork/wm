@@ -23,7 +23,7 @@ plt.title("Category")
 plt.show()
 # %% HDBSCAN
 df['label'] = categorical
-clusterer = hdbscan.HDBSCAN(min_cluster_size=3).fit(df)
+clusterer = hdbscan.HDBSCAN(min_cluster_size=6).fit(df)
 cluster_colors = [color_palette[x] if x >= 0
                   else (0.5, 0.5, 0.5)
                   for x in clusterer.labels_]
